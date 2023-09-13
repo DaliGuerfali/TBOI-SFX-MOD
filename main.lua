@@ -21,27 +21,27 @@ local DespairSettings = {
 --(Set 1 for HELL NAW, set 2 for not bad (exempting the item from HELL NAW))
 
 local CustomHellNawList = {
-	--["insert item name"] = 1 or 2, 
-	["The Scooper"] = 1,
-	["Sissy Longlegs"] = 1,
-	["Large Zit"] = 1,
-	["D8"] = 1,
-	["Urn Of Souls"] = 1,
-	["Anti-Gravity"] = 1,
-	["Guillotine"] = 1,
-	["Iron Bar"] = 1,
-	["The Peeper"] = 1,
-	["Epiphora"] = 1,
-	["Lil Gurdy"] = 1,
-	["Lost Fly"] = 1,
-	["Acid Baby"] = 1,
-	["Jupiter"] = 1,
-	["Mars"] = 1,
-	["Montezuma's Revenge"] = 1,
-	["Demon Baby"] = 1,
-	["Lil Portal"] = 1,
-	["Sanguine Bond"] = 1,
-	["Kidney Stone"] = 1,
+	--["insert item name in lowercase"] = 1 or 2, 
+	["the scooper"] = 1,
+	["sissy longlegs"] = 1,
+	["large zit"] = 1,
+	["d8"] = 1,
+	["urn of souls"] = 1,
+	["anti-gravity"] = 1,
+	["guillotine"] = 1,
+	["iron bar"] = 1,
+	["the peeper"] = 1,
+	["epiphora"] = 1,
+	["lil gurdy"] = 1,
+	["lost fly"] = 1,
+	["acid baby"] = 1,
+	["jupiter"] = 1,
+	["mars"] = 1,
+	["montezuma's revenge"] = 1,
+	["demon baby"] = 1,
+	["lil portal"] = 1,
+	["sanguine bond"] = 1,
+	["kidney stone"] = 1,
 }
 
 local saveThisList = false --IMPORTANT: Set this to "true", and this list will replace the saved one in-game.
@@ -261,12 +261,21 @@ Despair:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, Despair.OnGameStart)
 
 Despair.SOUND_DESPAIR_SFX = Isaac.GetSoundIdByName("DespairSFX")
 
+---------------------------------------------------------------
+
+--Construct Real Item Name From Repentance's #[ITEM_NAME]
+function Despair:GetRealItemName(name)
+	local res = string.sub(name, 2)
+	res = string.sub(res, 1, string.len(res) - 5)
+	res = string.gsub(res, "_", " ")
+	res = string.lower(res)
+	return res
+end
+
 --Play SFX
 function Despair:PlaySFX()
     sound:Play(Despair.SOUND_DESPAIR_SFX, 1 , 0, false, 1, 0)
 end
----------------------------------------------------------------
-
 
 --Pog costume processing
 function Despair:OnHellNawMoment(itemCount)
@@ -281,7 +290,7 @@ function Despair:OnHellNawMoment(itemCount)
 		end
 			
 		--print ("isRepStage=",isRepStage,"  roomItems=",roomItems)
-		local itemArr = {}
+		local bestItem = 0
 		--Scan entities in room
 		for i, entity in ipairs(Isaac.FindInRadius(Vector(640, 580), 875, EntityPartition.PICKUP)) do
 			
@@ -301,22 +310,26 @@ function Despair:OnHellNawMoment(itemCount)
 					
 					--print(item.Name)
 					--print(visible)
-					
-					if visible and item.Quality ~= nil and CustomHellNawList[item.Name] ~= 2 then
+
+					local itemName = Despair:GetRealItemName(item.Name)
+
+					--check visibility
+					if visible and item.Quality ~= nil then
 						--Check HELL NAW list or ignore quality option
-						if CustomHellNawList[item.Name] == 1 or DespairSettings["IgnoreQuality"] == true then
+						if CustomHellNawList[itemName] == 1 or DespairSettings["IgnoreQuality"] == true then
                             Despair:PlaySFX()
-							break
-						else	
-							table.insert(itemArr, item.Quality)
+							return
+						elseif CustomHellNawList[itemName] == 2 then 
+							bestItem = DespairSettings["QualityThreshold"] + 1
+						elseif item.Quality > bestItem	then
+							bestItem = item.Quality
 						end
 					end				
 				end
 			end
 		end
 		--if there is at least one item with a quality above the threshold, don't play the sfx
-		table.sort(itemArr)
-		if itemArr[#itemArr] <= DespairSettings["QualityThreshold"]  then
+		if bestItem <= DespairSettings["QualityThreshold"] then
 			Despair:PlaySFX()
 		end
 	end
@@ -378,28 +391,32 @@ end
 ---------------------------------------------------------------
 
 local lastItemCount = 0
---Room/Item/Card update
+
+--Room/Reroll update
 function Despair:OnRoomUpdate()
 	lastItemCount = 0
-	print("OH MA GAD CHECK BEGIN")
+	--print("OH MA GAD CHECK BEGIN")
+end
+
+function Despair:OnItemCountUpdate(currentItemCount)
+	lastItemCount = currentItemCount
 end
 
 --Game update
 function Despair:OnGameUpdate()
 
 	local currentItemCount = Despair:ScanItems()
-
+	
 	if currentItemCount > lastItemCount then
-		lastItemCount = currentItemCount
-		print("OH MA GAD CHECK MID ROOM")
+		--print("OH MA GAD CHECK MID ROOM")
+		Despair:OnItemCountUpdate(currentItemCount)	
 		Despair:OnHellNawMoment(currentItemCount)
 	elseif currentItemCount < lastItemCount then
-		Despair:OnRoomUpdate()	
+		Despair:OnItemCountUpdate(currentItemCount)	
 	end
-	
 end
 
 Despair:AddCallback(ModCallbacks.MC_POST_UPDATE,Despair.OnGameUpdate)
 Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM,Despair.OnRoomUpdate)
-Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate)
-Despair:AddCallback(ModCallbacks.MC_USE_CARD,Despair.OnRoomUpdate)
+Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate, CollectibleType.COLLECTIBLE_D6)
+Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate, CollectibleType.COLLECTIBLE_SPINDOWN_DICE)
