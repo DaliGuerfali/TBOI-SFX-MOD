@@ -2,4 +2,7 @@
     <sound name="DespairSFX">
         <sample weight="1" path="ohmagad.wav"/>
     </sound>
+    <sound name="SisiphenousSFX">
+        <sample weight="1" path="sisiphenous.wav"/>
+    </sound>
 </sounds>

@@ -42,6 +42,7 @@ local CustomHellNawList = {
 	["lil portal"] = 1,
 	["sanguine bond"] = 1,
 	["kidney stone"] = 1,
+	["a quarter"] = 2
 }
 
 local saveThisList = false --IMPORTANT: Set this to "true", and this list will replace the saved one in-game.
@@ -260,10 +261,11 @@ Despair:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, Despair.OnGameStart)
 ------------------------------Main-----------------------------
 
 Despair.SOUND_DESPAIR_SFX = Isaac.GetSoundIdByName("DespairSFX")
+Despair.SOUND_SISIPHENOUS_SFX = Isaac.GetSoundIdByName("SisiphenousSFX")
 
 ---------------------------------------------------------------
 
---Construct Real Item Name From Repentance's #[ITEM_NAME]
+--Construct Real Item Name in Lowercase From Repentance's #[ITEM_NAME]
 function Despair:GetRealItemName(name)
 	local res = string.sub(name, 2)
 	res = string.sub(res, 1, string.len(res) - 5)
@@ -272,12 +274,17 @@ function Despair:GetRealItemName(name)
 	return res
 end
 
---Play SFX
-function Despair:PlaySFX()
+--Play Hell Naw SFX
+function Despair:PlayHELLNAW()
     sound:Play(Despair.SOUND_DESPAIR_SFX, 1 , 0, false, 1, 0)
 end
 
---Pog costume processing
+--PLay Sisiphenous SFX
+function Despair:PlaySisiphenous()
+	sound:Play(Despair.SOUND_SISIPHENOUS_SFX,0.5,0,false,1.0)
+end
+
+--SFX processing
 function Despair:OnHellNawMoment(itemCount)
 	if Despair:BlindCheck() then
 	
@@ -317,7 +324,7 @@ function Despair:OnHellNawMoment(itemCount)
 					if visible and item.Quality ~= nil then
 						--Check HELL NAW list or ignore quality option
 						if CustomHellNawList[itemName] == 1 or DespairSettings["IgnoreQuality"] == true then
-                            Despair:PlaySFX()
+							Despair:PlayHELLNAW()
 							return
 						elseif CustomHellNawList[itemName] == 2 then 
 							bestItem = DespairSettings["QualityThreshold"] + 1
@@ -330,7 +337,7 @@ function Despair:OnHellNawMoment(itemCount)
 		end
 		--if there is at least one item with a quality above the threshold, don't play the sfx
 		if bestItem <= DespairSettings["QualityThreshold"] then
-			Despair:PlaySFX()
+			Despair:PlayHELLNAW()
 		end
 	end
 end
@@ -392,6 +399,7 @@ end
 
 local lastItemCount = 0
 
+
 --Room/Reroll update
 function Despair:OnRoomUpdate()
 	lastItemCount = 0
@@ -416,7 +424,23 @@ function Despair:OnGameUpdate()
 	end
 end
 
+--When entering Shop
+function Despair:EnterShop()
+	--ROOM_SHOP = 2
+	if Game():GetRoom():GetType() ~= 2 then
+		return
+	end
+	for i, entity in ipairs(Isaac.GetRoomEntities()) do
+		--Play sisiphenous when Super Greed
+		if entity.Type == 50 and entity.Variant == 1 then
+			Despair:PlaySisiphenous()
+		end
+	end
+end
+
+
 Despair:AddCallback(ModCallbacks.MC_POST_UPDATE,Despair.OnGameUpdate)
+Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, Despair.EnterShop)
 Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM,Despair.OnRoomUpdate)
 Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate, CollectibleType.COLLECTIBLE_D6)
 Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate, CollectibleType.COLLECTIBLE_SPINDOWN_DICE)
