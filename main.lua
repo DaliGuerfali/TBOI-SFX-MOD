@@ -45,6 +45,16 @@ local CustomHellNawList = {
 	["a quarter"] = 2
 }
 
+
+
+--Below is a list of bosses that sisiphenous will face
+--You can edit this list however you like, just remember to keep the format the same and the boss names accurate
+--Add a "boss name" for sisiphenous sfx to play
+local CustomSisiphenousList = {
+	"Bumbino"
+}
+
+
 local saveThisList = false --IMPORTANT: Set this to "true", and this list will replace the saved one in-game.
 
 --btw if you see this reset at any point, it just means the mod updated. It should still be saved in-game though.
@@ -439,8 +449,43 @@ function Despair:EnterShop()
 end
 
 
+function BossNameToEntityName(name)
+	local res = string.upper(name)
+	res = string.gsub(res, " ", "_")
+	return "#"..res
+end
+
+function EntityToStringID(entity)
+	return tostring(entity.Type).."."..tostring(entity.Variant)
+end
+
+function NameToStringID(name)
+	local modName = BossNameToEntityName(name)
+	return tostring(Isaac.GetEntityTypeByName(modName)).."."..tostring(Isaac.GetEntityVariantByName(modName))
+end
+
+
+--When entering Boss Room
+function Despair:EnterBoss()
+	if Game():GetRoom():GetType() ~= 5 then 
+		return
+	end
+	for i, entity in ipairs(Isaac.GetRoomEntities()) do
+		if entity.IsBoss(entity) then
+			local entityID = EntityToStringID(entity)
+			for j, boss in ipairs(CustomSisiphenousList) do
+				if NameToStringID(boss) == entityID then
+					Despair:PlaySisiphenous()
+				end
+			end
+		end
+	end
+
+end
+
 Despair:AddCallback(ModCallbacks.MC_POST_UPDATE,Despair.OnGameUpdate)
 Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, Despair.EnterShop)
+Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, Despair.EnterBoss)
 Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM,Despair.OnRoomUpdate)
 Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate, CollectibleType.COLLECTIBLE_D6)
 Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate, CollectibleType.COLLECTIBLE_SPINDOWN_DICE)
