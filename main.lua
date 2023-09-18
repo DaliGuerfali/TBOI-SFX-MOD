@@ -13,6 +13,7 @@ local DespairSettings = {
 	["BlindBypass"] = false, --Bypass curse of the blind
 	["QualityThreshold"] = 1, --Maximum quality required for OH HELL NAW to play
 	["IgnoreQuality"] = false, --Ignore items qualities altogether
+	["DevilDealThreshold"] = 70, --Minimum DD chance required for SFX to play when missing the DD Spawn [0;100] interval
 }
 
 
@@ -275,14 +276,7 @@ Despair.SOUND_SISIPHENOUS_SFX = Isaac.GetSoundIdByName("SisiphenousSFX")
 
 ---------------------------------------------------------------
 
---Construct Real Item Name in Lowercase From Repentance's #[ITEM_NAME]
-function Despair:GetRealItemName(name)
-	local res = string.sub(name, 2)
-	res = string.sub(res, 1, string.len(res) - 5)
-	res = string.gsub(res, "_", " ")
-	res = string.lower(res)
-	return res
-end
+
 
 --Play Hell Naw SFX
 function Despair:PlayHELLNAW()
@@ -293,6 +287,17 @@ end
 function Despair:PlaySisiphenous()
 	sound:Play(Despair.SOUND_SISIPHENOUS_SFX,0.5,0,false,1.0)
 end
+
+
+--Construct Real Item Name in Lowercase From Repentance's #[ITEM_NAME]
+function GetRealItemName(name)
+	local res = string.sub(name, 2)
+	res = string.sub(res, 1, string.len(res) - 5)
+	res = string.gsub(res, "_", " ")
+	res = string.lower(res)
+	return res
+end
+
 
 --SFX processing
 function Despair:OnHellNawMoment(itemCount)
@@ -328,7 +333,7 @@ function Despair:OnHellNawMoment(itemCount)
 					--print(item.Name)
 					--print(visible)
 
-					local itemName = Despair:GetRealItemName(item.Name)
+					local itemName = GetRealItemName(item.Name)
 
 					--check visibility
 					if visible and item.Quality ~= nil then
@@ -436,19 +441,19 @@ end
 
 --When entering Shop
 function Despair:EnterShop()
-	--ROOM_SHOP = 2
-	if Game():GetRoom():GetType() ~= 2 then
+	if Game():GetRoom():GetType() ~= RoomType.ROOM_SHOP then
 		return
 	end
 	for i, entity in ipairs(Isaac.GetRoomEntities()) do
 		--Play sisiphenous when Super Greed
-		if entity.Type == 50 and entity.Variant == 1 then
+		if entity.Type == EntityType.ENTITY_GREED and entity.Variant == 1 then
 			Despair:PlaySisiphenous()
 		end
 	end
 end
 
 
+--Construct Real Boss Name in #BOSS_NAME format
 function BossNameToEntityName(name)
 	local res = string.upper(name)
 	res = string.gsub(res, " ", "_")
@@ -460,15 +465,19 @@ function EntityToStringID(entity)
 end
 
 function NameToStringID(name)
-	local modName = BossNameToEntityName(name)
-	return tostring(Isaac.GetEntityTypeByName(modName)).."."..tostring(Isaac.GetEntityVariantByName(modName))
+	local bossName = BossNameToEntityName(name)
+	return tostring(Isaac.GetEntityTypeByName(bossName)).."."..tostring(Isaac.GetEntityVariantByName(bossName))
 end
 
 
 --When entering Boss Room
 function Despair:EnterBoss()
-	if Game():GetRoom():GetType() ~= 5 then 
+	if Game():GetRoom():GetType() ~= RoomType.ROOM_BOSS then 
 		return
+	end
+	--Check for devil deal scam only when in boss room
+	if Game():GetLevel():CanSpawnDevilRoom() == true and Game():GetRoom():IsClear() == false and Game():GetRoom():GetDevilRoomChance() >= (DespairSettings["DevilDealThreshold"]%100)/100 then
+		Despair:AddCallback(ModCallbacks.MC_POST_UPDATE, Despair.CheckDevilDealScam)
 	end
 	for i, entity in ipairs(Isaac.GetRoomEntities()) do
 		if entity.IsBoss(entity) then
@@ -480,7 +489,20 @@ function Despair:EnterBoss()
 			end
 		end
 	end
+end
 
+
+local DD_SCAM_CHANCE = 0
+-- :'(
+function Despair:CheckDevilDealScam()
+	if Game():GetRoom():GetType() ~= RoomType.ROOM_BOSS or Game():GetRoom():IsClear() == true then
+		if Game():GetRoom():GetType() == RoomType.ROOM_BOSS and Game():GetLevel():IsDevilRoomDisabled() == true  then
+			Despair:PlaySisiphenous()
+		end
+		Despair:RemoveCallback(ModCallbacks.MC_POST_UPDATE, Despair.CheckDevilDealScam)
+	else
+		DD_SCAM_CHANCE = Game():GetRoom():GetDevilRoomChance()
+	end
 end
 
 Despair:AddCallback(ModCallbacks.MC_POST_UPDATE,Despair.OnGameUpdate)
