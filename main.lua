@@ -427,7 +427,6 @@ end
 
 --Game update
 function Despair:OnGameUpdate()
-
 	local currentItemCount = Despair:ScanItems()
 	
 	if currentItemCount > lastItemCount then
@@ -479,6 +478,7 @@ function Despair:EnterBoss()
 	if Game():GetLevel():CanSpawnDevilRoom() == true and Game():GetRoom():IsClear() == false and Game():GetRoom():GetDevilRoomChance() >= (DespairSettings["DevilDealThreshold"]%100)/100 then
 		Despair:AddCallback(ModCallbacks.MC_POST_UPDATE, Despair.CheckDevilDealScam)
 	end
+	--Check for Custom Bosses to play SFX
 	for i, entity in ipairs(Isaac.GetRoomEntities()) do
 		if entity.IsBoss(entity) then
 			local entityID = EntityToStringID(entity)
@@ -505,9 +505,22 @@ function Despair:CheckDevilDealScam()
 	end
 end
 
+--When entering Devil Deal
+function Despair:EnterDevilDeal()
+	if Game():GetRoom():GetType() ~= RoomType.ROOM_DEVIL then 
+		return
+	end
+	local currentItemCount = Despair:ScanItems()
+	if currentItemCount == 0 then
+		Despair:PlayHELLNAW()
+	end
+end
+
+
 Despair:AddCallback(ModCallbacks.MC_POST_UPDATE,Despair.OnGameUpdate)
 Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, Despair.EnterShop)
 Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, Despair.EnterBoss)
+Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, Despair.EnterDevilDeal)
 Despair:AddCallback(ModCallbacks.MC_POST_NEW_ROOM,Despair.OnRoomUpdate)
 Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate, CollectibleType.COLLECTIBLE_D6)
 Despair:AddCallback(ModCallbacks.MC_USE_ITEM,Despair.OnRoomUpdate, CollectibleType.COLLECTIBLE_SPINDOWN_DICE)
