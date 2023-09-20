@@ -348,7 +348,6 @@ function Despair:OnHellNawMoment(itemCount)
 					--print(item.Name)
 					--print(visible)
 					local itemName = GetRealItemName(item.Name)
-					print(itemName)
 					--check visibility
 					if visible and item.Quality ~= nil then
 						--Check HELL NAW list or ignore quality option
@@ -408,8 +407,11 @@ function Despair:AltBlindCheck(entity,item,roomItems)
 	local centerX = 320
 	local centerY = 280
 	
+	-- one item always visible
+	if roomItems == 1 then
+		result = true
 	--two items
-	if roomItems == 2 then
+	elseif roomItems == 2 then
 		if (entity.Position).X <= centerX and (entity.Position).Y <= centerY then
 			--print("not blind")
 			result = true
