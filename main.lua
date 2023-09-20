@@ -1,6 +1,6 @@
 local Despair = RegisterMod("despairSfx",1)
 local game = Game()
-local SaveState = {}
+--local SaveState = {}
 local sound = SFXManager()
 ---------------------------------------------------------------
 ---------------------------------------------------------------
@@ -10,10 +10,11 @@ local sound = SFXManager()
 --If you want these settings to save across updates, I highly recommend you have Mod Config Menu installed
 
 local DespairSettings = {
-	["BlindBypass"] = false, --Bypass curse of the blind
 	["QualityThreshold"] = 1, --Maximum quality required for OH HELL NAW to play
-	["IgnoreQuality"] = false, --Ignore items qualities altogether
 	["DevilDealThreshold"] = 70, --Minimum DD chance required for SFX to play when missing the DD Spawn [0;100] interval
+	["SFXonSuperGreedShop"] = true, --Choose as you please 
+	["BlindBypass"] = false, --Bypass curse of the blind
+	["IgnoreQuality"] = false, --Ignore items qualities altogether
 }
 
 
@@ -22,13 +23,13 @@ local DespairSettings = {
 --(Set 1 for HELL NAW, set 2 for not bad (exempting the item from HELL NAW))
 
 local CustomHellNawList = {
-	--["insert item name in lowercase"] = 1 or 2, 
+	--["insert item name in lowercase with no special characters"] = 1 or 2, 
 	["the scooper"] = 1,
 	["sissy longlegs"] = 1,
 	["large zit"] = 1,
 	["d8"] = 1,
 	["urn of souls"] = 1,
-	["anti-gravity"] = 1,
+	["antigravity"] = 1,
 	["guillotine"] = 1,
 	["iron bar"] = 1,
 	["the peeper"] = 1,
@@ -38,12 +39,16 @@ local CustomHellNawList = {
 	["acid baby"] = 1,
 	["jupiter"] = 1,
 	["mars"] = 1,
-	["montezuma's revenge"] = 1,
+	["montezumas revenge"] = 1,
 	["demon baby"] = 1,
 	["lil portal"] = 1,
 	["sanguine bond"] = 1,
 	["kidney stone"] = 1,
-	["a quarter"] = 2
+	["lil delirium"] = 1,
+	["a quarter"] = 2,
+	["spider mod"] = 2,
+	["knife piece 1"] = 2,
+	["knife piece 2"] = 2,
 }
 
 
@@ -56,7 +61,7 @@ local CustomSisiphenousList = {
 }
 
 
-local saveThisList = false --IMPORTANT: Set this to "true", and this list will replace the saved one in-game.
+local saveThisList = true --IMPORTANT: Set this to "true", and this list will replace the saved one in-game.
 
 --btw if you see this reset at any point, it just means the mod updated. It should still be saved in-game though.
 
@@ -66,31 +71,60 @@ local saveThisList = false --IMPORTANT: Set this to "true", and this list will r
 
 local defaultsChanged = false
 
-if DespairSettings["BlindBypass"] == true or 
+if DespairSettings["DevilDealThreshold"] ~= 70 or 
 DespairSettings["QualityThreshold"] ~= 1 or 
+DespairSettings["BlindBypass"] == true or 
 DespairSettings["IgnoreQuality"] == true or 
+DespairSettings["SFXonSuperGreedShop"] == false or 
 saveThisList == true then
 	defaultsChanged = true
 end	
 
 ---------------------------------------------------------------
+-------------------------Helpers-------------------------------
+
+--Construct Real Item Name in Lowercase From Repentance's #[ITEM_NAME]
+function GetRealItemName(name)
+	local res = string.sub(name, 2)
+	res = string.sub(res, 1, string.len(res) - 5)
+	res = string.gsub(res, "_", " ")
+	res = string.lower(res)
+	return res
+end
+
+--Construct Real Boss Name in #BOSS_NAME format
+function BossNameToEntityName(name)
+	local res = string.upper(name)
+	res = string.gsub(res, " ", "_")
+	return "#"..res
+end
+
+function EntityToStringID(entity)
+	return tostring(entity.Type).."."..tostring(entity.Variant)
+end
+
+function NameToStringID(name)
+	local bossName = BossNameToEntityName(name)
+	return tostring(Isaac.GetEntityTypeByName(bossName)).."."..tostring(Isaac.GetEntityVariantByName(bossName))
+end
+
+---------------------------------------------------------------
 -------------------------Mod Config----------------------------
 
 if ModConfigMenu then
-
 	--[[local categoryToChange = ModConfigMenu.GetCategoryIDByName(DespairName)
 	if categoryToChange then
 	ModConfigMenu.MenuData[categoryToChange] = {}
 	ModConfigMenu.MenuData[categoryToChange].Name = tostring(DespairName)
 	ModConfigMenu.MenuData[categoryToChange].Subcategories = {}
 	end]]
-	
+
 	--Get max collectible id
 	function Despair:GetMaxCollectibleID()
-		local id = CollectibleType.NUM_COLLECTIBLES-1
+		local id = CollectibleType.NUM_COLLECTIBLES - 1
 		local step = 16
 		while step > 0 do
-			if Isaac.GetItemConfig():GetCollectible(id+step) ~= nil then
+			if Isaac.GetItemConfig():GetCollectible(id + step) ~= nil then
 				id = id + step
 			else
 				step = step // 2
@@ -103,16 +137,68 @@ if ModConfigMenu then
 	local DespairName = "OH HELL NAW"
 
 	ModConfigMenu.UpdateCategory(DespairName, {
-		Info = {"OH HELL NAW for Mid Items settings.",}
+		Info = { "OH HELL NAW for Mid Items settings.", }
 	})
-	
+
 	--Title
-	
+
 	ModConfigMenu.AddText(DespairName, "Settings", function() return "OH HELL NAW for Mid Items" end)
 	ModConfigMenu.AddSpace(DespairName, "Settings")
 
 	-- Settings
-	ModConfigMenu.AddSetting(DespairName, "Settings", 
+	ModConfigMenu.AddSetting(DespairName, "Settings",
+		{
+			Type = ModConfigMenu.OptionType.NUMBER,
+			CurrentSetting = function()
+				return DespairSettings["DevilDealThreshold"]
+			end,
+			Minimum = 0,
+			Maximum = 100,
+			Display = function()
+				return "Devil Deal Chance Check: " .. DespairSettings["DevilDealThreshold"] .. "%"
+			end,
+			OnChange = function(currentNum)
+				DespairSettings["DevilDealThreshold"] = currentNum
+			end,
+			Info = { "The minimum Devil Deal chance needed for SFX to play when missing the DD" }
+		})
+
+	ModConfigMenu.AddSetting(DespairName, "Settings",
+		{
+			Type = ModConfigMenu.OptionType.NUMBER,
+			CurrentSetting = function()
+				return DespairSettings["QualityThreshold"]
+			end,
+			Minimum = 0,
+			Maximum = 4,
+			Display = function()
+				return "Quality Check: " .. DespairSettings["QualityThreshold"]
+			end,
+			OnChange = function(currentNum)
+				DespairSettings["QualityThreshold"] = currentNum
+			end,
+			Info = { "The maximum item quality needed for SFX to play" }
+		})
+
+	ModConfigMenu.AddSetting(DespairName, "Settings", {
+		Type = ModConfigMenu.OptionType.BOOLEAN,
+			CurrentSetting = function()
+				return DespairSettings["SFXonSuperGreedShop"]
+			end,
+			Display = function()
+				local onOff = "True"
+				if not DespairSettings["SFXonSuperGreedShop"] then
+					onOff = "False"
+				end
+				return 'Super Greed Shop Check: ' .. onOff
+			end,
+			OnChange = function(currentBool)
+				DespairSettings["SFXonSuperGreedShop"] = currentBool
+			end,
+			Info = { "Play SFX When Super Greed In Shop." }
+	})
+
+	ModConfigMenu.AddSetting(DespairName, "Settings",
 		{
 			Type = ModConfigMenu.OptionType.BOOLEAN,
 			CurrentSetting = function()
@@ -128,29 +214,10 @@ if ModConfigMenu then
 			OnChange = function(currentBool)
 				DespairSettings["BlindBypass"] = currentBool
 			end,
-			Info = {"OH HELL NAW will play during Curse of the Blind"}
+			Info = { "SFX will play during Curse of the Blind" }
 		})
-	
-	ModConfigMenu.AddSetting(DespairName, "Settings", 
-		{
-			Type = ModConfigMenu.OptionType.NUMBER,
-			CurrentSetting = function()
-				return DespairSettings["QualityThreshold"]
-			end,
-			Minimum = 0,
-			Maximum = 4,
-			Display = function()
-				return "Quality Check: " .. DespairSettings["QualityThreshold"]
-			end,
-			OnChange = function(currentNum)
-				DespairSettings["QualityThreshold"] = currentNum
-			end,
-			Info = {"The maximum item quality needed for OH HELL NAW to play"}
-		})
-		
-	ModConfigMenu.AddSpace(DespairName, "Settings")
-	
-	ModConfigMenu.AddSetting(DespairName, "Settings", 
+
+	ModConfigMenu.AddSetting(DespairName, "Settings",
 		{
 			Type = ModConfigMenu.OptionType.BOOLEAN,
 			CurrentSetting = function()
@@ -166,107 +233,65 @@ if ModConfigMenu then
 			OnChange = function(currentBool)
 				DespairSettings["IgnoreQuality"] = currentBool
 			end,
-			Info = {"OH HELL NAW will ignore the quality system altogether."}
+			Info = { "SFX will ignore the quality system altogether." }
 		})
-		
-		
+
+
 	--Customization options
-	
+
 	local savePos = 0
-	local hunPos = 1 
-	
+	local hunPos = 1
+
 	for id = 1, Despair:GetMaxCollectibleID() do
-	
 		local item = Isaac.GetItemConfig():GetCollectible(id)
 		--print(id)
-		
-		savePos = savePos + 1 
+
+		savePos = savePos + 1
 		if savePos == 101 then
 			hunPos = hunPos + 1
 			savePos = 1
 		end
-		
+
 		local ctgName = tostring(hunPos * 100 - 99) .. '-' .. tostring(hunPos * 100)
-		
+
 		if id == 1 then
-		ModConfigMenu.AddText(DespairName, ctgName, function() return "Customize settings for any item" end)
-		ModConfigMenu.AddSpace(DespairName, ctgName)
+			ModConfigMenu.AddText(DespairName, ctgName, function() return "Customize settings for any item" end)
+			ModConfigMenu.AddSpace(DespairName, ctgName)
 		end
-		
+
 		if item ~= nil then
-
-			--print(item.Name)
-			if CustomHellNawList[item.Name] == nil then
-				table.insert(CustomHellNawList,item.Name)
-				CustomHellNawList[item.Name] = 0
+			local itemName = GetRealItemName(item.Name)
+			if CustomHellNawList[itemName] == nil then
+				table.insert(CustomHellNawList, itemName)
+				CustomHellNawList[itemName] = 0
 			end
-			
-			ModConfigMenu.AddSetting(DespairName, ctgName, 
-			{
-				Type = ModConfigMenu.OptionType.NUMBER,
-				CurrentSetting = function()
-					return CustomHellNawList[item.Name]
-				end,
-				Minimum = 0,
-				Maximum = 2,
-				Display = function()
-					local nChoice = "default"
-					if CustomHellNawList[item.Name] == 1 then
-						nChoice = "OH HELL NAW"
-					elseif CustomHellNawList[item.Name] == 2 then
-						nChoice = "POG"
-					end
-					return id .. '     ' .. item.Name .. ': ' .. nChoice
-				end,
-				OnChange = function(currentNum)
-					CustomHellNawList[item.Name] = currentNum
-				end,
-				Info = {item.Name .. " (quality " .. item.Quality .. ")"}
-			})
+
+			ModConfigMenu.AddSetting(DespairName, ctgName,
+				{
+					Type = ModConfigMenu.OptionType.NUMBER,
+					CurrentSetting = function()
+						return CustomHellNawList[itemName]
+					end,
+					Minimum = 0,
+					Maximum = 2,
+					Display = function()
+						local nChoice = "Default"
+						if CustomHellNawList[itemName] == 1 then
+							nChoice = "OH HELL NAW"
+						elseif CustomHellNawList[itemName] == 2 then
+							nChoice = "Good Item"
+						end
+						return id .. '     ' .. itemName .. ': ' .. nChoice
+					end,
+					OnChange = function(currentNum)
+						CustomHellNawList[itemName] = currentNum
+					end,
+					Info = { itemName .. " (Quality " .. item.Quality .. ")" }
+				})
 		end
 	end
 end
-
 ---------------------------------------------------------------
----------------------------Savedata----------------------------
-
-local json = require("json")
-
-function Despair:SaveGame()
-	--print("save")
-	SaveState.Settings = {}
-	SaveState.Items = {}
-	
-	for i, v in pairs(DespairSettings) do
-		SaveState.Settings[tostring(i)] = DespairSettings[i]
-	end
-	for i, v in pairs(CustomHellNawList) do
-		SaveState.Items[tostring(i)] = CustomHellNawList[i]
-	end
-    Despair:SaveData(json.encode(SaveState))
-end
-Despair:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, Despair.SaveGame)
-
-function Despair:OnGameStart(isSave)
-	
-	--If the defaults were changed directly from this file, overwrite the existing save data
-	if defaultsChanged then
-		Despair:SaveGame()
-	end	
-	
-    if Despair:HasData() then
-	
-		SaveState = json.decode(Despair:LoadData())	
-		
-        for i, v in pairs(SaveState.Settings) do
-			DespairSettings[tostring(i)] = SaveState.Settings[i]
-		end
-		for i, v in pairs(SaveState.Items) do
-			CustomHellNawList[tostring(i)] = SaveState.Items[i]
-		end
-    end
-end
-Despair:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, Despair.OnGameStart)
 
 ---------------------------------------------------------------
 ------------------------------Main-----------------------------
@@ -286,16 +311,6 @@ end
 --PLay Sisiphenous SFX
 function Despair:PlaySisiphenous()
 	sound:Play(Despair.SOUND_SISIPHENOUS_SFX,0.5,0,false,1.0)
-end
-
-
---Construct Real Item Name in Lowercase From Repentance's #[ITEM_NAME]
-function GetRealItemName(name)
-	local res = string.sub(name, 2)
-	res = string.sub(res, 1, string.len(res) - 5)
-	res = string.gsub(res, "_", " ")
-	res = string.lower(res)
-	return res
 end
 
 
@@ -332,9 +347,8 @@ function Despair:OnHellNawMoment(itemCount)
 					
 					--print(item.Name)
 					--print(visible)
-
 					local itemName = GetRealItemName(item.Name)
-
+					print(itemName)
 					--check visibility
 					if visible and item.Quality ~= nil then
 						--Check HELL NAW list or ignore quality option
@@ -440,7 +454,7 @@ end
 
 --When entering Shop
 function Despair:EnterShop()
-	if Game():GetRoom():GetType() ~= RoomType.ROOM_SHOP then
+	if Game():GetRoom():GetType() ~= RoomType.ROOM_SHOP and DespairSettings["SFXonSuperGreedShop"] ~= false then
 		return
 	end
 	for i, entity in ipairs(Isaac.GetRoomEntities()) do
@@ -450,24 +464,6 @@ function Despair:EnterShop()
 		end
 	end
 end
-
-
---Construct Real Boss Name in #BOSS_NAME format
-function BossNameToEntityName(name)
-	local res = string.upper(name)
-	res = string.gsub(res, " ", "_")
-	return "#"..res
-end
-
-function EntityToStringID(entity)
-	return tostring(entity.Type).."."..tostring(entity.Variant)
-end
-
-function NameToStringID(name)
-	local bossName = BossNameToEntityName(name)
-	return tostring(Isaac.GetEntityTypeByName(bossName)).."."..tostring(Isaac.GetEntityVariantByName(bossName))
-end
-
 
 --When entering Boss Room
 function Despair:EnterBoss()
