@@ -61,7 +61,7 @@ local CustomSisiphenousList = {
 }
 
 
-local saveThisList = true --IMPORTANT: Set this to "true", and this list will replace the saved one in-game.
+local saveThisList = false --IMPORTANT: Set this to "true", and this list will replace the saved one in-game.
 
 --btw if you see this reset at any point, it just means the mod updated. It should still be saved in-game though.
 
@@ -508,10 +508,16 @@ function Despair:EnterDevilDeal()
 	if Game():GetRoom():GetType() ~= RoomType.ROOM_DEVIL then 
 		return
 	end
+	Despair:AddCallback(ModCallbacks.MC_POST_PICKUP_RENDER, Despair.CheckEmptyDD)
+end
+
+-- >:(
+function Despair:CheckEmptyDD()
 	local currentItemCount = Despair:ScanItems()
 	if currentItemCount == 0 then
 		Despair:PlayHELLNAW()
 	end
+	Despair:RemoveCallback(ModCallbacks.MC_POST_PICKUP_RENDER, Despair.CheckEmptyDD)
 end
 
 
